@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
@@ -39,6 +37,15 @@ jobs:
           path: ./out
 
   deploy:
+    # Builds remain safe to run during migration. Enable publishing only after
+    # cutover approval by setting the destination repository variable to true.
+    if: >-
+      github.repository == 'Annurmw/annur-website' &&
+      github.ref == 'refs/heads/main' &&
+      vars.PAGES_DEPLOYMENT_ENABLED == 'true'
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
