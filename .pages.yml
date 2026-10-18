@@ -83,3 +83,212 @@ content:
         label: Show on Homepage
         type: boolean
         default: false
+
+  - name: sponsor-a-child
+    label: Sponsor a Child Page
+    type: file
+    path: content/sponsor-a-child.json
+    format: json
+    fields:
+      - name: eyebrow
+        label: Small Heading
+        type: string
+        required: true
+
+      - name: heading
+        label: Main Heading
+        type: string
+        required: true
+
+      - name: headingAccent
+        label: Highlighted Heading Text
+        type: string
+        required: true
+
+      - name: introduction
+        label: Page Introduction
+        type: text
+        required: true
+        description: Keep claims factual and aspirational. Do not promise outcomes, services, or prices that have not been confirmed.
+
+      - name: heroImage
+        label: General Programme Image
+        type: image
+        description: Use approved general programme imagery. Do not imply the image depicts a child in a sponsorship profile.
+        options:
+          media: uploads
+
+      - name: heroImageAlt
+        label: Programme Image Description
+        type: string
+        required: true
+
+      - name: sectionHeading
+        label: Profile Section Heading
+        type: string
+        required: true
+
+      - name: sectionIntroduction
+        label: Profile Section Introduction
+        type: text
+        required: true
+
+      - name: paymentUrl
+        label: Approved External Payment URL
+        type: string
+        description: Leave blank until the approved payment page is provided. Use an absolute HTTPS URL with no username or password. Never put payment credentials or donor information here.
+
+      - name: paymentNote
+        label: Payment Information
+        type: text
+        required: true
+        description: Explain the external payment handoff without inventing sponsorship amounts or payment terms.
+
+      - name: faqs
+        label: Frequently Asked Questions
+        type: object
+        list: true
+        fields:
+          - name: question
+            label: Question
+            type: string
+            required: true
+          - name: answer
+            label: Answer
+            type: text
+            required: true
+
+  - name: sponsorship-profiles
+    label: Sponsorship Profiles
+    type: collection
+    path: content/sponsorships
+    filename: "{fields.slug}.json"
+    format: json
+    view:
+      fields: [displayName, ageGroup, publicationStatus, sponsorshipStatus]
+      primary: displayName
+      sort:
+        field: order
+        order: asc
+    fields:
+      - name: slug
+        label: URL Slug
+        type: string
+        required: true
+        description: Use a public alias identifier with lowercase letters, numbers, and single hyphens only. Do not include a legal name or private case identifier. Keep the filename in sync with this slug.
+
+      - name: displayName
+        label: Public Alias
+        type: string
+        required: true
+        description: Public-safe alias only. Never store a child's legal full name, date of birth, home address, medical information, family contact details, donor records, or other sensitive data in this collection. Drafts are stored in Git and are not private.
+
+      - name: ageGroup
+        label: Age Group
+        type: select
+        required: true
+        options:
+          values:
+            - 5–7 years
+            - 8–10 years
+            - 11–13 years
+            - 14–17 years
+        description: Use an age group only, never an exact date of birth.
+
+      - name: programme
+        label: Programme
+        type: select
+        required: true
+        options:
+          values:
+            - Education
+            - Care & wellbeing
+            - Education & care
+
+      - name: region
+        label: Broad Region
+        type: string
+        required: true
+        description: Use only a broad public-safe region. Do not include a village, school, home address, or precise location that could identify the child.
+
+      - name: summary
+        label: Card Summary
+        type: text
+        required: true
+        description: Up to 500 characters. Focus on interests and approved support needs without sensitive case details.
+
+      - name: story
+        label: Profile Story
+        type: text
+        required: true
+        description: Plain text, up to 6000 characters. Share approved interests and needs with dignity. Do not include identifying or medical details, unsupported service claims, or guaranteed outcomes.
+
+      - name: aspiration
+        label: Hopes and Interests
+        type: text
+        required: true
+        description: Up to 500 characters. Describe a hope or interest without promising an outcome.
+
+      - name: supportAreas
+        label: Assessed Support Areas
+        type: string
+        list: true
+        required: true
+        description: Add 1 to 8 approved support areas, each up to 100 characters. Do not list unconfirmed services.
+
+      - name: image
+        label: Approved Public Profile Image
+        type: image
+        description: Optional. Upload only imagery with safeguarding and public-use approval. Leave blank if no approved photograph is available. Never reuse a general programme image as an individual child's photograph.
+        options:
+          media: uploads
+
+      - name: imageAlt
+        label: Photograph Description
+        type: string
+        description: Required when a photo is selected. May be blank when no photograph is displayed. Use a public-safe description, up to 300 characters.
+
+      - name: publicationStatus
+        label: Publication Status
+        type: select
+        required: true
+        default: draft
+        description: Drafts do not appear on the website, but Git and the CMS are not private storage. Publishing also requires the approval checkbox below.
+        options:
+          values:
+            - draft
+            - published
+
+      - name: publicationApproved
+        label: Safeguarding and Public-use Approval Confirmed
+        type: boolean
+        default: false
+        description: Check only after the alias, age group, broad region, text, and any image have been approved for public sharing through the organisation's safeguarding process. This approval is required in addition to published status.
+
+      - name: sponsorshipStatus
+        label: Sponsorship Availability
+        type: select
+        required: true
+        default: paused
+        description: This is separate from publication. Confirm availability before selecting available. Supported or paused profiles must not invite new payments.
+        options:
+          values:
+            - available
+            - supported
+            - paused
+
+      - name: featured
+        label: Featured Profile
+        type: boolean
+        default: false
+
+      - name: order
+        label: Display Order
+        type: number
+        default: 100
+        description: Whole number from 0 to 9999. Lower numbers appear first.
+
+      - name: paymentUrl
+        label: Profile-specific External Payment URL
+        type: string
+        description: Optional approved absolute HTTPS URL without a username or password. Leave blank to use the page's payment link. Never store credentials or donor records. Payment buttons are available only for profiles marked available.

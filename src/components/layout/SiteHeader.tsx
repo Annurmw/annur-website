@@ -70,24 +70,28 @@ export default function SiteHeader() {
             type="button"
             aria-label="Toggle navigation"
             aria-expanded={menuOpen}
+            aria-controls="primary-navigation"
             onClick={() => setMenuOpen((value) => !value)}
           >
             <span />
             <span />
           </button>
 
-          <nav className={`site-nav ${menuOpen ? "is-open" : ""}`} aria-label="Primary">
+          <nav id="primary-navigation" className={`site-nav ${menuOpen ? "is-open" : ""}`} aria-label="Primary">
             {navItems.map((item) => (
               <Link key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>
                 {item.label}
               </Link>
             ))}
+            <Link className="nav-sponsor-link" href="/sponsor-a-child" onClick={() => setMenuOpen(false)}>
+              Sponsor a Child
+            </Link>
           </nav>
 
           <div className="header-actions">
-            <button className="search-pill" type="button" aria-label="Search">
-              <Icon name="search" />
-            </button>
+            <Link className="header-sponsor-link" href="/sponsor-a-child">
+              Sponsor a Child
+            </Link>
             <button className="btn btn-primary" type="button" onClick={() => setDonateOpen(true)}>
               <span aria-hidden="true" className="btn-icon">
                 <Icon name="heart" size={18} />

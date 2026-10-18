@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getImpactStories } from "@/lib/content";
+import { getSponsorshipProfiles } from "@/lib/sponsorship/content";
 import {
   galleryCategories,
   partners,
@@ -24,6 +25,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    {
+      url: `${site.url}/sponsor-a-child`,
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    ...getSponsorshipProfiles().map((profile) => ({
+      url: `${site.url}/sponsor-a-child/${profile.slug}`,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
     ...programs.map((item) => ({
       url: `${site.url}/our-work/${item.slug}`,
       changeFrequency: "monthly" as const,

@@ -7833,4 +7833,56 @@ body::before {
   font-size: 0.84rem;
 }
 
+/* Sponsorship navigation: replaces the unused search action. */
+.header-sponsor-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid #cad8eb;
+  border-radius: 999px;
+  color: var(--blue-deep);
+  background: #eef4fb;
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.header-sponsor-link:hover {
+  background: #e2ecfa;
+  border-color: var(--blue-deep);
+}
+
+.header-sponsor-link:focus-visible,
+.site-nav .nav-sponsor-link:focus-visible {
+  outline: 3px solid var(--blue-deep);
+  outline-offset: 4px;
+}
+
+.site-nav .nav-sponsor-link {
+  display: none;
+}
+
+@media (max-width: 1200px) and (min-width: 1101px) {
+  .header-inner { gap: 12px; }
+  .site-nav { gap: 12px; }
+  .site-header .brand { min-width: 188px; }
+  .header-actions { gap: 8px; }
+  .header-sponsor-link { padding-inline: 12px; }
+  .header-actions .btn-primary { padding-inline: 14px; }
+}
+
+@media (max-width: 1100px) {
+  .site-nav { visibility: hidden; }
+  .site-nav.is-open { visibility: visible; }
+  .site-nav .nav-sponsor-link { display: block; color: var(--blue-deep); }
+}
+
+@media (max-width: 600px) {
+  .header-sponsor-link { display: none; }
+  .header-inner { gap: 8px; }
+  .header-actions .btn-primary { padding-inline: 12px; font-size: 0.8125rem; }
+}
+
 

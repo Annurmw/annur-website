@@ -7,7 +7,8 @@
     "build": "next build",
     "export": "next build",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:sponsorship": "node --test tests/sponsorship.test.cjs"
   },
   "dependencies": {
     "next": "15.3.8",

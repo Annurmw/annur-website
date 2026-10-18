@@ -34,6 +34,7 @@ export default function SiteFooter() {
             <li><Link href="/about#vision-mission">Vision &amp; Mission</Link></li>
             <li><Link href="/about#madinah-model">The Madinah Model</Link></li>
             <li><Link href="/impact-stories">Impact Stories</Link></li>
+            <li><Link href="/sponsor-a-child">Sponsor a Child</Link></li>
             <li><Link href="/gallery/all">Photo Gallery</Link></li>
           </ul>
         </div>
