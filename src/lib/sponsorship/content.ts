@@ -8,6 +8,8 @@ import type {
 
 const MAX_CONTENT_BYTES = 64 * 1024;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const STORED_SLUG_PATTERN = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
+const CARD_SUMMARY_LENGTH = 240;
 const AGE_GROUPS = new Set([
   "5–7 years",
   "8–10 years",
@@ -90,6 +92,34 @@ function textField(value: unknown, maxLength: number): string | null {
   return text;
 }
 
+function isBlankText(value: unknown): boolean {
+  return value === undefined || value === null ||
+    (typeof value === "string" && !value.trim());
+}
+
+function optionalTextField(value: unknown, maxLength: number): string | null {
+  return isBlankText(value) ? "" : textField(value, maxLength);
+}
+
+function profileSlugField(value: unknown): string | null {
+  const slug = textField(value, 80);
+  // Only normalize case, never remove characters or invent a new identifier.
+  // ASCII validation before lowercasing avoids accepting Unicode lookalikes.
+  return slug && STORED_SLUG_PATTERN.test(slug) ? slug.toLowerCase() : null;
+}
+
+function cardSummary(story: string): string {
+  const text = story.replace(/\s+/g, " ").trim();
+  const characters = Array.from(text);
+  if (characters.length <= CARD_SUMMARY_LENGTH) return text;
+
+  const excerpt = characters.slice(0, CARD_SUMMARY_LENGTH - 1);
+  const lastSpace = excerpt.lastIndexOf(" ");
+  // Prefer whole words; still bound long words without splitting Unicode pairs.
+  const boundary = lastSpace >= Math.floor(excerpt.length / 2) ? lastSpace : excerpt.length;
+  return `${excerpt.slice(0, boundary).join("").trimEnd()}…`;
+}
+
 function imageField(value: unknown): string | null {
   if (value === undefined || value === "") return "";
   const image = textField(value, 2048);
@@ -143,14 +173,17 @@ function parseProfile(data: JsonObject, filename: string): SponsorshipProfile | 
     return null;
   }
 
-  const slug = textField(data.slug, 80);
+  const slug = profileSlugField(data.slug);
   const displayName = textField(data.displayName, 60);
   const ageGroup = textField(data.ageGroup, 30);
   const programme = textField(data.programme, 40);
   const region = textField(data.region, 100);
-  const summary = textField(data.summary, 500);
-  const story = textField(data.story, 6000);
-  const aspiration = textField(data.aspiration, 500);
+  // The single CMS description drives both the card and the full profile.
+  // Preserve older summary-only entries without rewriting any stored content.
+  const story = isBlankText(data.story)
+    ? textField(data.summary, 500)
+    : textField(data.story, 6000);
+  const aspiration = optionalTextField(data.aspiration, 500);
   const supportAreas = supportAreasField(data.supportAreas);
   const image = imageField(data.image);
   const imageAlt =
@@ -167,9 +200,8 @@ function parseProfile(data: JsonObject, filename: string): SponsorshipProfile | 
     !programme ||
     !PROGRAMMES.has(programme as SponsorshipProgramme) ||
     !region ||
-    !summary ||
     !story ||
-    !aspiration ||
+    aspiration === null ||
     !supportAreas ||
     image === null ||
     !imageAlt ||
@@ -186,7 +218,7 @@ function parseProfile(data: JsonObject, filename: string): SponsorshipProfile | 
     ageGroup,
     programme: programme as SponsorshipProgramme,
     region,
-    summary,
+    summary: cardSummary(story),
     story,
     aspiration,
     supportAreas,

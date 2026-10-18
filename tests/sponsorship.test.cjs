@@ -138,7 +138,7 @@ test("publication requires both explicit published status and literal boolean ap
 test("invalid content, identifiers and filenames fail closed", () => fixture(({ write, temp }) => {
   for (const changes of [
     { slug: "../case" }, { slug: "wrong-name" }, { ageGroup: "8 years old" }, { programme: "Unknown" },
-    { sponsorshipStatus: "invalid" }, { summary: "" }, { summary: "a".repeat(501) }, { supportAreas: [] },
+    { sponsorshipStatus: "invalid" }, { story: "a".repeat(6001) }, { story: 123 }, { story: "Unsafe\u0000text" }, { supportAreas: [] },
     { image: "/uploads/photo.jpg", imageAlt: "" }, { image: "//example.com/child.jpg", imageAlt: "Photo" },
     { image: "/../private.jpg", imageAlt: "Photo" }, { image: "/%2e%2e/private.jpg", imageAlt: "Photo" },
   ]) {
@@ -150,11 +150,147 @@ test("invalid content, identifiers and filenames fail closed", () => fixture(({ 
   assert.equal(content.getSponsorshipProfileBySlug("../test-profile"), null);
 }));
 
+test("stored ASCII slug case normalizes only when the filename is already canonical", () => fixture(({ write, temp }) => {
+  for (const slug of ["test-profile", "Test-Profile", "TEST-PROFILE", " Test-Profile "]) {
+    write("test-profile.json", profile({ slug }));
+    assert.deepEqual(content.getSponsorshipProfiles().map((value) => value.slug), ["test-profile"]);
+    assert.equal(content.getSponsorshipProfileBySlug("test-profile").slug, "test-profile");
+    assert.equal(content.getSponsorshipProfileBySlug("Test-Profile"), null, "lookups and generated URLs stay canonical");
+  }
+
+  // Remove our fixture before creating the other spelling so this works on
+  // both case-sensitive and case-insensitive filesystems.
+  fs.unlinkSync(path.join(temp, "content", "sponsorships", "test-profile.json"));
+  write("Test-Profile.json", profile({ slug: "Test-Profile" }));
+  assert.deepEqual(content.getSponsorshipProfiles(), [], "noncanonical filenames must not acquire a new URL");
+  fs.unlinkSync(path.join(temp, "content", "sponsorships", "Test-Profile.json"));
+  write("test-profile.json", profile({ slug: "Test-Profile" }));
+  assert.equal(content.getSponsorshipProfiles().length, 1);
+}));
+
+test("slug normalization rejects traversal, malformed identifiers and Unicode lookalikes", () => fixture(({ write }) => {
+  for (const slug of [
+    "../test-profile", "test/profile", "test\\profile", "test%2fprofile", "test--profile",
+    "-test-profile", "test-profile-", "test_profile", "test profile", "test-profile\u0000", "a".repeat(81),
+  ]) {
+    write("test-profile.json", profile({ slug }));
+    assert.deepEqual(content.getSponsorshipProfiles(), [], slug);
+    assert.equal(content.getSponsorshipProfileBySlug(slug), null);
+  }
+  write("test-k.json", profile({ slug: "Test-\u212a" }));
+  assert.deepEqual(content.getSponsorshipProfiles(), [], "the Kelvin sign must not become an accepted ASCII k");
+}));
+
+test("one story drives the card summary regardless of legacy summary content", () => fixture(({ write }) => {
+  const story = "  Approved interests and support needs.\r\n\r\nA second paragraph.  ";
+  for (const summary of [undefined, null, "", "Stale legacy card copy.", "a".repeat(501), 123, "Unsafe\u0000legacy text"]) {
+    write("test-profile.json", profile({ story, summary }));
+    const [value] = content.getSponsorshipProfiles();
+    assert.ok(value, "valid story must not require a separately valid legacy summary");
+    assert.equal(value.story, story.trim());
+    assert.equal(value.summary, "Approved interests and support needs. A second paragraph.");
+  }
+}));
+
+test("legacy summary-only profiles work without concealing an invalid nonempty story", () => fixture(({ write }) => {
+  for (const story of [undefined, null, "", " \t\r\n "]) {
+    write("test-profile.json", profile({ story, summary: "  Approved legacy description.  " }));
+    const [value] = content.getSponsorshipProfiles();
+    assert.equal(value.story, "Approved legacy description.");
+    assert.equal(value.summary, "Approved legacy description.");
+  }
+  for (const summary of [undefined, null, "", " \t\n", "a".repeat(501), 123, "Unsafe\u0000text"]) {
+    write("test-profile.json", profile({ story: undefined, summary }));
+    assert.deepEqual(content.getSponsorshipProfiles(), [], "fallback still requires a valid legacy description");
+  }
+  for (const story of ["a".repeat(6001), 123, {}, "Unsafe\u0000story"]) {
+    write("test-profile.json", profile({ story, summary: "A valid legacy summary." }));
+    assert.deepEqual(content.getSponsorshipProfiles(), [], "invalid nonempty story must not silently fall back");
+  }
+}));
+
+test("derived card descriptions stay bounded, preserve words and keep Unicode intact", () => fixture(({ write }) => {
+  const readSummary = (story) => {
+    write("test-profile.json", profile({ story, summary: undefined }));
+    const [value] = content.getSponsorshipProfiles();
+    assert.ok(value);
+    assert.ok(Array.from(value.summary).length <= 240, "summary length includes its ellipsis");
+    return value.summary;
+  };
+  assert.equal(readSummary(" First paragraph.\r\n\r\nSecond\t paragraph. "), "First paragraph. Second paragraph.");
+  assert.equal(readSummary("a".repeat(240)), "a".repeat(240), "exactly 240 characters need no ellipsis");
+  assert.equal(readSummary("a".repeat(241)), `${"a".repeat(239)}…`, "long words remain bounded");
+  const wholeWords = "Approved interests and learning materials ".repeat(12).trim();
+  const wordsSummary = readSummary(wholeWords);
+  assert.ok(wordsSummary.endsWith("…"));
+  assert.ok(wholeWords.startsWith(`${wordsSummary.slice(0, -1)} `), "truncated prose ends at a complete word");
+  const sparseSpaces = `Short ${"a".repeat(300)}`;
+  assert.equal(readSummary(sparseSpaces), `${sparseSpaces.slice(0, 239)}…`, "an early space must not produce an unhelpfully short excerpt");
+  assert.equal(readSummary("😀".repeat(240)), "😀".repeat(240));
+  assert.equal(readSummary("😀".repeat(241)), `${"😀".repeat(239)}…`, "truncation must not split a surrogate pair");
+}));
+
+test("hopes and interests are optional while invalid nonempty text remains excluded", () => fixture(({ write }) => {
+  for (const aspiration of [undefined, null, "", " \t\r\n "]) {
+    write("test-profile.json", profile({ aspiration }));
+    assert.equal(content.getSponsorshipProfiles()[0].aspiration, "");
+  }
+  write("test-profile.json", profile({ aspiration: "  Drawing and reading.  " }));
+  assert.equal(content.getSponsorshipProfiles()[0].aspiration, "Drawing and reading.");
+  for (const aspiration of [123, {}, "a".repeat(501), "Unsafe\u0000text"]) {
+    write("test-profile.json", profile({ aspiration }));
+    assert.deepEqual(content.getSponsorshipProfiles(), []);
+  }
+}));
+
+test("reading normalized and summary-only profiles preserves the stored JSON", () => fixture(({ write, temp }) => {
+  write("test-profile.json", profile({ slug: "Test-Profile", summary: "Legacy text retained on disk.", aspiration: undefined }));
+  write("legacy-profile.json", profile({ slug: "Legacy-Profile", story: undefined, summary: "Older description.", aspiration: null }));
+  const files = ["test-profile.json", "legacy-profile.json"].map((name) => path.join(temp, "content", "sponsorships", name));
+  const original = files.map((file) => fs.readFileSync(file));
+  assert.deepEqual(content.getSponsorshipProfiles().map((value) => value.slug), ["legacy-profile", "test-profile"]);
+  assert.equal(content.getSponsorshipProfileBySlug("test-profile").summary, "A public-safe narrative. A second paragraph.");
+  assert.equal(content.getSponsorshipProfileBySlug("legacy-profile").story, "Older description.");
+  files.forEach((file, index) => assert.deepEqual(fs.readFileSync(file), original[index], "content reads must not migrate or rewrite JSON"));
+}));
+
 test("CMS photo filenames with spaces work; absent photo uses a safe placeholder", () => fixture(({ write }) => {
   write("test-profile.json", profile({ image: "/uploads/Approved Photo (1).jpeg", imageAlt: "Approved photograph" }));
   assert.equal(content.getSponsorshipProfiles()[0].image, "/uploads/Approved Photo (1).jpeg");
   write("test-profile.json", profile());
   assert.equal(content.getSponsorshipProfiles()[0].image, "");
+}));
+
+test("photo descriptions are required only when an approved image is selected", () => fixture(({ write }) => {
+  for (const imageAlt of [undefined, null, "", " \t\r\n "]) {
+    write("test-profile.json", profile({ image: "", imageAlt }));
+    assert.equal(content.getSponsorshipProfiles()[0].imageAlt, "Photograph not displayed");
+    write("test-profile.json", profile({ image: "/uploads/Approved Photo (1).jpeg", imageAlt }));
+    assert.deepEqual(content.getSponsorshipProfiles(), [], "selected photo must not publish without a description");
+  }
+  for (const imageAlt of ["a".repeat(301), "Unsafe\u0000text", 123]) {
+    write("test-profile.json", profile({ image: "/uploads/Approved Photo (1).jpeg", imageAlt }));
+    assert.deepEqual(content.getSponsorshipProfiles(), []);
+  }
+  write("test-profile.json", profile({ image: "/uploads/Approved Photo (1).jpeg", imageAlt: "  Approved photograph.  " }));
+  assert.equal(content.getSponsorshipProfiles()[0].imageAlt, "Approved photograph.");
+}));
+
+test("Bilal-shaped content still needs a photo description after slug normalization", () => fixture(({ write }) => {
+  const bilal = {
+    slug: "Bilal", displayName: "Bilal", ageGroup: "8–10 years", programme: "Education", region: "Malawi",
+    summary: "Bilal enjoys reading, drawing and exploring new ideas and is very smart",
+    story: "Bilal enjoys storybooks, drawing pictures and solving number puzzles. ",
+    aspiration: "Learning new words and creating illustrated stories.", supportAreas: ["Learning materials"],
+    image: "/uploads/Sponsor a child.webp", publicationStatus: "published", publicationApproved: true,
+    sponsorshipStatus: "available", featured: false, order: 1,
+  };
+  write("bilal.json", bilal);
+  assert.deepEqual(content.getSponsorshipProfiles(), []);
+  write("bilal.json", { ...bilal, imageAlt: "An approved photograph of Bilal." });
+  const [value] = content.getSponsorshipProfiles();
+  assert.equal(value.slug, "bilal");
+  assert.equal(value.summary, bilal.story.trim());
 }));
 
 test("payment links accept HTTPS only, without credentials or executable schemes", () => fixture(({ write }) => {
@@ -200,6 +336,38 @@ test("external payment handoff requires a link and open status; missing links in
     assert.doesNotMatch(unconfigured, /disabled=|preview|fictional|coming soon/i);
   }
 }));
+
+test("profile detail renders the full story once and shows hopes only when supplied", async () => {
+  const story = "The approved child enjoys reading and drawing during learning sessions.";
+  const summary = "Separate card excerpt that should not appear on the detail page.";
+  let currentProfile = profile({ story, summary, aspiration: "", paymentUrl: null });
+  const page = loadSource("src/app/sponsor-a-child/[slug]/page.tsx", {
+    "next/link": { __esModule: true, default: ({ children, ...props }) => React.createElement("a", props, children) },
+    "next/navigation": { notFound: () => { throw new Error("Unexpected missing profile"); } },
+    "@/components/layout/SiteHeader": { __esModule: true, default: () => null },
+    "@/components/layout/SiteFooter": { __esModule: true, default: () => null },
+    "@/components/ui/Icon": { __esModule: true, default: () => null },
+    "@/components/ui/SponsorshipAction": { __esModule: true, default: () => null },
+    "@/components/sections/SponsorshipBrowser": { SponsorshipPortrait: () => null },
+    "@/lib/sponsorship/content": {
+      getSponsorshipProfiles: () => [currentProfile],
+      getSponsorshipProfileBySlug: (slug) => slug === currentProfile.slug ? currentProfile : null,
+      getSponsorshipSettings: () => ({ paymentUrl: null, paymentNote: "" }),
+    },
+    "@/lib/site-data": { site: { url: "https://annurmw.com" } },
+  });
+  const render = async () => renderToStaticMarkup(await page.default({ params: Promise.resolve({ slug: currentProfile.slug }) }));
+  const withoutHopes = await render();
+  assert.equal(withoutHopes.split(story).length - 1, 1, "the unified description must appear once");
+  assert.ok(!withoutHopes.includes(summary), "the card excerpt must not duplicate the detail narrative");
+  assert.doesNotMatch(withoutHopes, /Looking ahead|sponsor-aspiration|sponsor-hero__lead/);
+
+  currentProfile = { ...currentProfile, aspiration: "Learning to illustrate stories." };
+  const withHopes = await render();
+  assert.equal(withHopes.split(story).length - 1, 1);
+  assert.ok(!withHopes.includes(summary));
+  assert.match(withHopes, /<h2>Looking ahead<\/h2><p>Learning to illustrate stories\.<\/p>/);
+});
 
 const browserProfiles = [
   profile({ slug: "test-profile-one", displayName: "Test Profile One", programme: "Education", ageGroup: "8–10 years" }),

@@ -50,7 +50,6 @@ export default async function SponsorshipProfilePage({ params }: Props) {
                 <div className="sponsor-detail-copy">
                   <p className="sponsor-eyebrow">{profile.programme} · {profile.region}</p>
                   <h1 className="sponsor-hero__title">Meet <span>{profile.displayName}.</span></h1>
-                  <p className="sponsor-hero__lead">{profile.summary}</p>
                   <dl className="sponsor-detail-facts"><div><dt>Age group</dt><dd>{profile.ageGroup}</dd></div><div><dt>Programme</dt><dd>{profile.programme}</dd></div><div><dt>Region</dt><dd>{profile.region}</dd></div></dl>
                   <div className="sponsor-detail-story"><h2>A little about {profile.displayName}</h2>{profile.story.split(/\n\s*\n/).filter(Boolean).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>
                   {profile.aspiration && <div className="sponsor-aspiration"><span aria-hidden="true"><Icon name="spark" size={24} /></span><div><h2>Looking ahead</h2><p>{profile.aspiration}</p></div></div>}

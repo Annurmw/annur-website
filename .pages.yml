@@ -175,7 +175,12 @@ content:
         label: URL Slug
         type: string
         required: true
-        description: Use a public alias identifier with lowercase letters, numbers, and single hyphens only. Do not include a legal name or private case identifier. Keep the filename in sync with this slug.
+        pattern:
+          regex: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+          message: Use lowercase letters, numbers, and single hyphens only, for example bilal.
+        options:
+          maxlength: 80
+        description: Public alias identifier only, for example bilal. Lowercase is required when saving. Do not change a published slug or include a legal name or private case identifier.
 
       - name: displayName
         label: Public Alias
@@ -211,23 +216,20 @@ content:
         required: true
         description: Use only a broad public-safe region. Do not include a village, school, home address, or precise location that could identify the child.
 
-      - name: summary
-        label: Card Summary
-        type: text
-        required: true
-        description: Up to 500 characters. Focus on interests and approved support needs without sensitive case details.
-
       - name: story
-        label: Profile Story
+        label: About the child
         type: text
         required: true
-        description: Plain text, up to 6000 characters. Share approved interests and needs with dignity. Do not include identifying or medical details, unsupported service claims, or guaranteed outcomes.
+        options:
+          maxlength: 6000
+        description: Write this once. The card uses a shortened version and the profile shows the full text. Share approved interests and support needs, without private details, unsupported claims or guaranteed outcomes.
 
       - name: aspiration
-        label: Hopes and Interests
+        label: Hopes and Interests (optional)
         type: text
-        required: true
-        description: Up to 500 characters. Describe a hope or interest without promising an outcome.
+        options:
+          maxlength: 500
+        description: Add only if it provides something new. Leave blank to hide this section. Do not promise an outcome.
 
       - name: supportAreas
         label: Assessed Support Areas
@@ -246,7 +248,13 @@ content:
       - name: imageAlt
         label: Photograph Description
         type: string
-        description: Required when a photo is selected. May be blank when no photograph is displayed. Use a public-safe description, up to 300 characters.
+        required: true
+        pattern:
+          regex: '\S'
+          message: Add an accurate photo description, or enter No photograph displayed if no photo is selected.
+        options:
+          maxlength: 300
+        description: Describe the selected photo accurately for accessibility, up to 300 characters. If no photo is selected, enter No photograph displayed. Never put private details here.
 
       - name: publicationStatus
         label: Publication Status
